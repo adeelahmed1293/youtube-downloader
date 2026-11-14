@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Bulk & Shorts Downloader</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    
+    <!-- Header -->
+    <div class="popup-header">
+      <div class="logo-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      </div>
+      <div>
+        <h1>YouTube Downloader</h1>
+        <p class="subtitle">Bulk Shorts & Videos • Zero Bot Errors</p>
+      </div>
+    </div>
+
+    <!-- Active Tab Status -->
+    <div id="tab-status-box" class="status-box">
+      <div class="status-indicator active"></div>
+      <div class="status-info">
+        <span class="status-label">Current Page</span>
+        <span id="current-page-title" class="status-title">Detecting YouTube...</span>
+      </div>
+    </div>
+
+    <!-- Quick Action Button -->
+    <button id="btn-open-in-page" class="btn-primary">
+      <span>⚡ Open Downloader on Page</span>
+    </button>
+
+    <!-- Divider -->
+    <div class="divider">
+      <span>OR USE DIRECT URL</span>
+    </div>
+
+    <!-- URL Input -->
+    <div class="input-group">
+      <input type="text" id="manual-url" placeholder="Paste Channel link or Video URL..." />
+      <button id="btn-fetch-url" class="btn-secondary">Inspect</button>
+    </div>
+
+    <!-- Quality Selector -->
+    <div class="field-row">
+      <label for="popup-quality">Resolution:</label>
+      <select id="popup-quality" class="dropdown">
+        <option value="1080p">1080p Full HD</option>
+        <option value="720p" selected>720p HD</option>
+        <option value="480p">480p</option>
+        <option value="audio_mp3">Audio MP3</option>
+      </select>
+    </div>
+
+    <!-- Local Companion Status -->
+    <div class="companion-box">
+      <span>💻 Local Server Companion:</span>
+      <a href="http://localhost:5000" target="_blank" class="companion-link">localhost:5000 ↗</a>
+    </div>
+
+    <!-- Footer -->
+    <div class="popup-footer">
+      <span>Files save to <b>Downloads/YouTube_Shorts/</b></span>
+    </div>
+
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
