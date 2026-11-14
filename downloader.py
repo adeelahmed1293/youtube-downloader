@@ -368,16 +368,16 @@ class ZipBatchManager:
                 'preferredquality': '192',
             }]
         elif quality == "720p":
-            format_str = "bestvideo[vcodec^=avc1][height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720][ext=mp4]/best[ext=mp4]/best"
+            format_str = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]/best"
             postprocessors = []
         elif quality == "480p":
-            format_str = "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]"
+            format_str = "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480]/best"
             postprocessors = []
         elif quality == "360p":
-            format_str = "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360]"
+            format_str = "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/best[height<=360]/best"
             postprocessors = []
         else: # 1080p
-            format_str = "bestvideo[vcodec^=avc1][height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080][ext=mp4]/best[ext=mp4]/best"
+            format_str = "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best"
             postprocessors = []
 
         outtmpl = os.path.join(batch_folder, "%(title)s [%(id)s].%(ext)s")
@@ -421,12 +421,19 @@ class ZipBatchManager:
             if cookie_path:
                 ydl_opts['cookiefile'] = cookie_path
 
+            last_err_msg = ""
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-                with self._lock:
-                    batch["completed_items"] += 1
+                    ret = ydl.download([url])
+                    if ret != 0:
+                        last_err_msg = "Download returned non-zero status"
+                        with self._lock:
+                            batch["failed_items"] += 1
+                    else:
+                        with self._lock:
+                            batch["completed_items"] += 1
             except Exception as e:
+                last_err_msg = str(e)
                 with self._lock:
                     batch["failed_items"] += 1
 
@@ -448,7 +455,10 @@ class ZipBatchManager:
         if not media_files:
             with self._lock:
                 batch["status"] = "error"
-                batch["error"] = "No videos could be downloaded from YouTube."
+                if not get_cookiefile_path():
+                    batch["error"] = "YouTube Bot Check: Cloud IP blocked by YouTube. Please add YOUTUBE_COOKIES in Render to allow downloads."
+                else:
+                    batch["error"] = "No videos could be downloaded from YouTube."
             return
 
         try:
