@@ -36,18 +36,30 @@ def format_views(count: Optional[int]) -> str:
 def sanitize_filename(name: str) -> str:
     return re.sub(r'[\\/*?:"<>|]', "", name).strip()
 
+def is_single_video_url(url: str) -> bool:
+    """Checks if the URL is a single YouTube video or Short."""
+    url = url.strip()
+    parsed = urlparse(url)
+    netloc = parsed.netloc.lower()
+    path = parsed.path.lower()
+    
+    if "youtu.be" in netloc:
+        return True
+    if any(kw in path for kw in ["/watch", "/shorts/", "/embed/", "/live/", "/v/"]):
+        return True
+    return False
+
 def normalize_channel_url(url: str, filter_type: str = "all") -> str:
     """Ensure channel URL has appropriate tab if requested."""
     url = url.strip()
     if not ("youtube.com" in url or "youtu.be" in url):
         return url
         
+    if is_single_video_url(url):
+        return url
+
     parsed = urlparse(url)
     path = parsed.path.rstrip('/')
-
-    # Single video check
-    if "watch" in path or "shorts" in path or "youtu.be" in parsed.netloc:
-        return url
 
     # It's a channel or playlist
     if filter_type == "shorts":
@@ -71,39 +83,53 @@ def fetch_youtube_metadata(url: str, filter_type: str = "all", max_results: Opti
     Uses extract_flat so it extracts all videos without downloading video streams.
     If max_results is None or 0, it fetches ALL videos/shorts without limit.
     """
+    url = url.strip()
+    is_single = is_single_video_url(url)
     target_url = normalize_channel_url(url, filter_type)
     
     ydl_opts = {
-        'extract_flat': 'in_playlist',
+        'extract_flat': 'in_playlist' if not is_single else False,
         'skip_download': True,
         'quiet': True,
         'no_warnings': True,
-        'ignoreerrors': True,
-        'extractor_args': {
-            'youtube': {
-                'player_client': HD_CLIENTS
-            }
-        }
+        'ignoreerrors': False,
     }
 
-    if max_results and max_results > 0:
+    if max_results and max_results > 0 and not is_single:
         ydl_opts['playlistend'] = max_results
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(target_url, download=False)
-        if not info:
-            raise ValueError("Could not extract metadata from the provided URL.")
+    info = None
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(target_url, download=False)
+    except Exception:
+        # Fallback with ignoreerrors or minimal options
+        try:
+            fallback_opts = {
+                'extract_flat': True,
+                'skip_download': True,
+                'quiet': True,
+                'no_warnings': True,
+                'ignoreerrors': True,
+            }
+            with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                info = ydl.extract_info(target_url, download=False)
+        except Exception:
+            pass
+
+    if not info:
+        raise ValueError("Could not extract metadata from the provided URL. Please verify the link is accessible.")
 
     entries_raw = []
     is_playlist = "entries" in info and info["entries"] is not None
 
-    if is_playlist:
+    if is_playlist and not is_single:
         entries_raw = list(info["entries"])
         channel_title = info.get("channel") or info.get("uploader") or info.get("title") or "YouTube Channel"
         channel_url = info.get("channel_url") or info.get("uploader_url") or target_url
     else:
         entries_raw = [info]
-        channel_title = info.get("channel") or info.get("uploader") or "YouTube"
+        channel_title = info.get("channel") or info.get("uploader") or info.get("title") or "YouTube Video"
         channel_url = info.get("channel_url") or target_url
 
     items = []
@@ -115,25 +141,26 @@ def fetch_youtube_metadata(url: str, filter_type: str = "all", max_results: Opti
             continue
             
         title = entry.get("title") or "Untitled Video"
-        v_url = entry.get("url") or f"https://www.youtube.com/watch?v={v_id}"
-        if not v_url.startswith("http"):
-            v_url = f"https://www.youtube.com/watch?v={v_id}"
+        webpage_url = entry.get("webpage_url") or entry.get("url") or f"https://www.youtube.com/watch?v={v_id}"
+        if not webpage_url.startswith("http") or "googlevideo.com" in webpage_url:
+            webpage_url = f"https://www.youtube.com/watch?v={v_id}"
 
         duration = entry.get("duration")
         view_count = entry.get("view_count")
         
         # Determine if it's a Short
         is_short = False
-        if "/shorts/" in target_url or "/shorts/" in v_url:
+        if "/shorts/" in target_url or "/shorts/" in webpage_url:
             is_short = True
         elif duration is not None and 0 < duration <= 62:
             is_short = True
             
-        # Apply filter_type if channel was fetched without tab
-        if filter_type == "shorts" and not is_short:
-            continue
-        if filter_type == "videos" and is_short and duration is not None and duration <= 60:
-            continue
+        # Only apply filter_type if this was a bulk channel / playlist scan (NOT a direct single video link)
+        if is_playlist and not is_single:
+            if filter_type == "shorts" and not is_short:
+                continue
+            if filter_type == "videos" and is_short and duration is not None and duration <= 60:
+                continue
 
         thumbnails = entry.get("thumbnails") or []
         thumb_url = ""
@@ -145,7 +172,7 @@ def fetch_youtube_metadata(url: str, filter_type: str = "all", max_results: Opti
         items.append({
             "id": v_id,
             "title": title,
-            "url": v_url,
+            "url": webpage_url,
             "duration": duration,
             "duration_str": format_duration(duration),
             "views": format_views(view_count),
@@ -158,7 +185,7 @@ def fetch_youtube_metadata(url: str, filter_type: str = "all", max_results: Opti
     return {
         "title": channel_title,
         "url": channel_url,
-        "is_playlist": is_playlist,
+        "is_playlist": is_playlist and not is_single,
         "filter_type": filter_type,
         "count": len(items),
         "items": items

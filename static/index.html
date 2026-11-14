@@ -109,14 +109,14 @@
         <div class="flex flex-wrap items-center justify-between gap-4 pt-2">
           <div class="flex items-center gap-2">
             <span class="text-xs text-slate-400 font-medium mr-1">Filter Channel Content:</span>
-            <button onclick="setFilter('shorts')" id="btn-filter-shorts" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 text-white border border-rose-500 transition shadow-sm">
+            <button onclick="setFilter('all')" id="btn-filter-all" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 text-white border border-rose-500 transition shadow-sm">
+              ✨ All Items
+            </button>
+            <button onclick="setFilter('shorts')" id="btn-filter-shorts" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white border border-slate-700 transition">
               📱 Shorts Only
             </button>
             <button onclick="setFilter('videos')" id="btn-filter-videos" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white border border-slate-700 transition">
               🎬 Long Videos Only
-            </button>
-            <button onclick="setFilter('all')" id="btn-filter-all" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white border border-slate-700 transition">
-              ✨ All Items
             </button>
           </div>
 
@@ -289,7 +289,7 @@
   <script>
     let fetchedItems = [];
     let selectedIds = new Set();
-    let currentFilter = 'shorts'; // Default to shorts for optimal workflow
+    let currentFilter = 'all'; // Default to all so any video, short, or channel works immediately
     let activeBatchId = null;
     let batchPollTimer = null;
 
