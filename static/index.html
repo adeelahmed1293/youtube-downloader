@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Bulk & Shorts Downloader (ZIP Edition)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fff1f2',
+              500: '#f43f5e',
+              600: '#e11d48',
+              700: '#be123c',
+            },
+            surface: {
+              DEFAULT: '#0f172a',
+              card: '#1e293b',
+              border: '#334155',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0b0f17 50%, #05070a 100%);
+      min-height: 100vh;
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    .card-selected {
+      border-color: #f43f5e !important;
+      box-shadow: 0 0 15px rgba(244, 63, 94, 0.25);
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8 flex flex-col items-center">
+
+  <!-- Main Container -->
+  <div class="w-full max-w-7xl">
+
+    <!-- Top Navigation -->
+    <header class="flex flex-col md:flex-row items-center justify-between pb-6 mb-8 border-b border-slate-800 gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 bg-rose-600/20 border border-rose-500/40 rounded-2xl flex items-center justify-center text-rose-500 shadow-lg shadow-rose-950/50">
+          <i data-lucide="archive" class="w-7 h-7"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            YouTube Bulk Downloader
+            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Direct ZIP Package</span>
+          </h1>
+          <p class="text-xs text-slate-400">Fetch channels or shorts, select what you want, and download as a single packaged ZIP archive (Zero server storage).</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-medium px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300 flex items-center gap-1.5">
+          <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+          Ephemeral: 0 Server Retention
+        </span>
+      </div>
+    </header>
+
+    <!-- Search & Fetch Input Box -->
+    <div class="bg-slate-900/80 border border-slate-800 p-6 rounded-3xl backdrop-blur-xl shadow-2xl mb-8">
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-col md:flex-row gap-3">
+          <div class="relative flex-1">
+            <i data-lucide="link" class="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              id="url-input" 
+              placeholder="Paste YouTube Channel (@MrBeast), Shorts link, or Video URL..." 
+              class="w-full bg-slate-950/70 border border-slate-700/80 rounded-2xl pl-12 pr-4 py-3.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 text-sm transition"
+              onkeydown="if(event.key==='Enter') fetchContent()"
+            />
+          </div>
+          <button 
+            onclick="fetchContent()" 
+            id="fetch-btn"
+            class="flex items-center justify-center gap-2 px-7 py-3.5 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-semibold rounded-2xl shadow-lg shadow-rose-950 transition duration-150 disabled:opacity-50"
+          >
+            <i data-lucide="search" class="w-4 h-4"></i>
+            <span>Fetch Videos</span>
+          </button>
+        </div>
+
+        <!-- Filter Options -->
+        <div class="flex flex-wrap items-center justify-between gap-4 pt-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 font-medium mr-1">Filter Channel Content:</span>
+            <button onclick="setFilter('shorts')" id="btn-filter-shorts" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 text-white border border-rose-500 transition shadow-sm">
+              📱 Shorts Only
+            </button>
+            <button onclick="setFilter('videos')" id="btn-filter-videos" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white border border-slate-700 transition">
+              🎬 Long Videos Only
+            </button>
+            <button onclick="setFilter('all')" id="btn-filter-all" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white border border-slate-700 transition">
+              ✨ All Items
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 text-xs text-slate-400">
+            <span>Scan Count:</span>
+            <select id="max-results" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:border-rose-500 font-medium">
+              <option value="0" selected>⚡ Fetch ALL (Unlimited)</option>
+              <option value="50">50 items</option>
+              <option value="100">100 items</option>
+              <option value="250">250 items</option>
+              <option value="500">500 items</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="hidden flex flex-col items-center justify-center py-16 gap-3">
+      <div class="w-10 h-10 border-4 border-rose-500/20 border-t-rose-500 rounded-full animate-spin"></div>
+      <p class="text-sm font-medium text-slate-300">Scanning YouTube channel & retrieving all items...</p>
+      <p class="text-xs text-slate-500">Fast playlist inspector active</p>
+    </div>
+
+    <!-- Error Banner -->
+    <div id="error-banner" class="hidden p-4 mb-6 rounded-2xl bg-rose-950/40 border border-rose-800/60 text-rose-300 text-sm flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i data-lucide="alert-circle" class="w-5 h-5 text-rose-400 shrink-0"></i>
+        <span id="error-message"></span>
+      </div>
+      <button onclick="document.getElementById('error-banner').classList.add('hidden')" class="text-rose-400 hover:text-white">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- Results Section (Visible after fetch) -->
+    <section id="results-section" class="hidden flex flex-col gap-5">
+
+      <!-- Action Bar -->
+      <div class="bg-slate-900/90 border border-slate-800 px-6 py-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 backdrop-blur-md">
+        
+        <div class="flex items-center gap-3">
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400"></div>
+          <div>
+            <h2 id="channel-name" class="text-base font-bold text-white truncate max-w-sm md:max-w-md">Channel Name</h2>
+            <p id="channel-stats" class="text-xs text-slate-400">Showing 0 items</p>
+          </div>
+        </div>
+
+        <!-- Download & Selection Toolbar -->
+        <div class="flex flex-wrap items-center gap-3">
+          <button onclick="toggleSelectAll()" id="btn-select-all" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition">
+            Select All
+          </button>
+
+          <!-- Search Filter -->
+          <div class="relative">
+            <input 
+              type="text" 
+              id="search-filter" 
+              placeholder="Search in title..." 
+              oninput="filterCards()" 
+              class="w-36 md:w-48 bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+            />
+          </div>
+
+          <!-- Quality Dropdown -->
+          <select id="quality-select" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none focus:border-rose-500">
+            <option value="1080p" selected>1080p (Full HD MP4)</option>
+            <option value="720p">720p (HD MP4)</option>
+            <option value="480p">480p (SD MP4)</option>
+            <option value="360p">360p (Lightweight MP4)</option>
+            <option value="audio_mp3">Audio Only (MP3)</option>
+          </select>
+
+          <!-- Download as ZIP Action Button -->
+          <button 
+            onclick="startZipDownload()" 
+            id="download-btn"
+            class="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-semibold text-xs rounded-xl shadow-lg shadow-rose-950 transition duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled
+          >
+            <i data-lucide="archive" class="w-4 h-4"></i>
+            <span id="download-btn-text">Download as ZIP (0)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Video Grid -->
+      <div id="video-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <!-- Dynamically populated cards -->
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- ZIP Download Progress Modal -->
+  <div id="zip-modal" class="fixed inset-0 bg-black/75 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 flex flex-col shadow-2xl relative overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
+            <i data-lucide="package" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Packaging ZIP Archive</h3>
+            <p id="zip-modal-subtitle" class="text-[11px] text-slate-400">Downloading files into temporary archive...</p>
+          </div>
+        </div>
+        <button onclick="closeZipModal()" id="btn-close-modal" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Live Progress View -->
+      <div class="py-6 flex flex-col gap-4">
+        
+        <!-- Status Label & Percentage -->
+        <div class="flex items-center justify-between text-xs font-semibold">
+          <span id="zip-progress-status" class="text-slate-200 truncate max-w-[320px]">Starting download...</span>
+          <span id="zip-progress-pct" class="text-rose-400 font-mono text-sm">0%</span>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
+          <div id="zip-progress-bar" class="bg-gradient-to-r from-rose-600 via-rose-500 to-emerald-400 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <!-- Metric details -->
+        <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono pt-1">
+          <span id="zip-progress-items">Items: 0 / 0</span>
+          <span id="zip-progress-speed">Speed: 0 KB/s</span>
+        </div>
+
+        <!-- Success Result Box (Hidden until completed) -->
+        <div id="zip-success-box" class="hidden mt-2 p-5 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl flex flex-col items-center gap-3 text-center">
+          <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <i data-lucide="check-circle" class="w-7 h-7"></i>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white">🎉 Your ZIP File is Being Downloaded!</h4>
+            <p id="zip-file-details" class="text-xs text-slate-300 mt-1">Please check your browser downloads manager.</p>
+          </div>
+          <a 
+            id="zip-download-link" 
+            href="#" 
+            class="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-950 transition"
+          >
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Click Here if Download Didn't Start
+          </a>
+          <p class="text-[10px] text-slate-400 leading-tight">
+            🛡️ Zero Storage Guarantee: To keep server storage at 0, this archive is automatically cleaned up.
+          </p>
+        </div>
+
+        <!-- Error Box -->
+        <div id="zip-error-box" class="hidden mt-2 p-3 bg-rose-950/40 border border-rose-800 rounded-xl text-xs text-rose-300">
+          <span id="zip-error-msg"></span>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let fetchedItems = [];
+    let selectedIds = new Set();
+    let currentFilter = 'shorts'; // Default to shorts for optimal workflow
+    let activeBatchId = null;
+    let batchPollTimer = null;
+
+    lucide.createIcons();
+
+    function setFilter(type) {
+      currentFilter = type;
+      document.querySelectorAll('.filter-tab').forEach(btn => {
+        btn.classList.remove('bg-rose-600', 'text-white', 'border-rose-500', 'shadow-sm');
+        btn.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-700');
+      });
+
+      const activeBtn = document.getElementById(`btn-filter-${type}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-700');
+        activeBtn.classList.add('bg-rose-600', 'text-white', 'border-rose-500', 'shadow-sm');
+      }
+    }
+
+    async function fetchContent() {
+      const url = document.getElementById('url-input').value.trim();
+      const maxResultsVal = parseInt(document.getElementById('max-results').value);
+      const maxResults = maxResultsVal > 0 ? maxResultsVal : null;
+      const loading = document.getElementById('loading-state');
+      const resultsSection = document.getElementById('results-section');
+      const errorBanner = document.getElementById('error-banner');
+      const fetchBtn = document.getElementById('fetch-btn');
+
+      if (!url) {
+        showError("Please enter a valid YouTube channel, shorts, or video URL.");
+        return;
+      }
+
+      errorBanner.classList.add('hidden');
+      resultsSection.classList.add('hidden');
+      loading.classList.remove('hidden');
+      fetchBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/fetch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: url,
+            filter_type: currentFilter,
+            max_results: maxResults
+          })
+        });
+
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to fetch content.");
+        }
+
+        fetchedItems = data.data.items || [];
+        selectedIds.clear();
+
+        renderResults(data.data);
+      } catch (err) {
+        showError(err.message || "Failed to extract YouTube content.");
+      } finally {
+        loading.classList.add('hidden');
+        fetchBtn.disabled = false;
+        lucide.createIcons();
+      }
+    }
+
+    function renderResults(data) {
+      const resultsSection = document.getElementById('results-section');
+      const channelName = document.getElementById('channel-name');
+      const channelStats = document.getElementById('channel-stats');
+      const videoGrid = document.getElementById('video-grid');
+
+      channelName.textContent = data.title || "YouTube Content";
+      channelStats.textContent = `Found ${fetchedItems.length} items (${data.filter_type} mode)`;
+
+      videoGrid.innerHTML = '';
+
+      if (fetchedItems.length === 0) {
+        videoGrid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-slate-500">
+            <i data-lucide="video-off" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+            <p class="text-sm font-medium">No items found matching the current filter.</p>
+          </div>
+        `;
+        resultsSection.classList.remove('hidden');
+        lucide.createIcons();
+        updateDownloadButton();
+        return;
+      }
+
+      fetchedItems.forEach(item => {
+        const card = document.createElement('div');
+        card.id = `card-${item.id}`;
+        card.className = "bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition duration-150 cursor-pointer flex flex-col group select-none";
+        card.onclick = (e) => {
+          if (e.target.closest('a')) return;
+          toggleSelect(item.id);
+        };
+
+        const badgeClass = item.is_short 
+          ? "bg-rose-600/90 text-white" 
+          : "bg-indigo-600/90 text-white";
+        const badgeText = item.is_short ? "⚡ SHORT" : "🎬 VIDEO";
+
+        card.innerHTML = `
+          <div class="relative w-full aspect-video bg-slate-950 overflow-hidden">
+            <img src="${item.thumbnail}" alt="${item.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
+            
+            <!-- Checkbox -->
+            <div class="absolute top-2 left-2 z-10">
+              <input type="checkbox" id="check-${item.id}" class="w-4 h-4 rounded bg-slate-950/80 border-slate-600 text-rose-600 focus:ring-0 cursor-pointer" onclick="event.stopPropagation(); toggleSelect('${item.id}')">
+            </div>
+
+            <!-- Type Badge -->
+            <span class="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeClass} shadow-md">
+              ${badgeText}
+            </span>
+
+            <!-- Duration Badge -->
+            <span class="absolute bottom-2 right-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/80 text-white font-mono">
+              ${item.duration_str}
+            </span>
+          </div>
+
+          <div class="p-3.5 flex flex-col flex-1 justify-between gap-2.5">
+            <h4 class="text-xs font-semibold text-slate-200 line-clamp-2 leading-relaxed" title="${item.title}">
+              ${item.title}
+            </h4>
+
+            <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
+              <span>👁️ ${item.views}</span>
+              <a href="${item.url}" target="_blank" class="hover:text-rose-400 transition flex items-center gap-1" title="Watch on YouTube">
+                <span>Watch</span>
+                <i data-lucide="external-link" class="w-3 h-3"></i>
+              </a>
+            </div>
+          </div>
+        `;
+        videoGrid.appendChild(card);
+      });
+
+      resultsSection.classList.remove('hidden');
+      lucide.createIcons();
+      updateDownloadButton();
+    }
+
+    function toggleSelect(id) {
+      const checkbox = document.getElementById(`check-${id}`);
+      const card = document.getElementById(`card-${id}`);
+
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+        if (checkbox) checkbox.checked = false;
+        if (card) card.classList.remove('card-selected');
+      } else {
+        selectedIds.add(id);
+        if (checkbox) checkbox.checked = true;
+        if (card) card.classList.add('card-selected');
+      }
+      updateDownloadButton();
+    }
+
+    function toggleSelectAll() {
+      const btn = document.getElementById('btn-select-all');
+      if (selectedIds.size === fetchedItems.length && fetchedItems.length > 0) {
+        selectedIds.clear();
+        btn.textContent = "Select All";
+      } else {
+        fetchedItems.forEach(item => selectedIds.add(item.id));
+        btn.textContent = "Deselect All";
+      }
+
+      fetchedItems.forEach(item => {
+        const checkbox = document.getElementById(`check-${item.id}`);
+        const card = document.getElementById(`card-${item.id}`);
+        const isSel = selectedIds.has(item.id);
+        if (checkbox) checkbox.checked = isSel;
+        if (card) {
+          if (isSel) card.classList.add('card-selected');
+          else card.classList.remove('card-selected');
+        }
+      });
+
+      updateDownloadButton();
+    }
+
+    function updateDownloadButton() {
+      const btn = document.getElementById('download-btn');
+      const btnText = document.getElementById('download-btn-text');
+      const count = selectedIds.size;
+
+      btnText.textContent = `Download as ZIP (${count})`;
+      btn.disabled = count === 0;
+
+      const selectAllBtn = document.getElementById('btn-select-all');
+      if (selectAllBtn && fetchedItems.length > 0) {
+        selectAllBtn.textContent = (selectedIds.size === fetchedItems.length) ? "Deselect All" : "Select All";
+      }
+    }
+
+    function filterCards() {
+      const q = document.getElementById('search-filter').value.toLowerCase().trim();
+      fetchedItems.forEach(item => {
+        const card = document.getElementById(`card-${item.id}`);
+        if (!card) return;
+        if (!q || item.title.toLowerCase().includes(q)) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+    }
+
+    // --- ZIP Batch Flow ---
+
+    async function startZipDownload() {
+      if (selectedIds.size === 0) return;
+
+      const quality = document.getElementById('quality-select').value;
+      const channelName = document.getElementById('channel-name').textContent.trim();
+      const itemsToDownload = fetchedItems.filter(item => selectedIds.has(item.id));
+
+      const downloadBtn = document.getElementById('download-btn');
+      downloadBtn.disabled = true;
+
+      // Open Modal in starting state
+      openZipModal();
+
+      try {
+        const res = await fetch('/api/batch-download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: itemsToDownload,
+            quality: quality,
+            channel_name: channelName
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          activeBatchId = data.batch_id;
+          startBatchPolling();
+        } else {
+          showZipError(data.error || "Failed to start batch.");
+        }
+      } catch (err) {
+        showZipError(err.message || "Failed to initiate download batch.");
+      }
+    }
+
+    function openZipModal() {
+      document.getElementById('zip-modal').classList.remove('hidden');
+      document.getElementById('zip-success-box').classList.add('hidden');
+      document.getElementById('zip-error-box').classList.add('hidden');
+      document.getElementById('zip-progress-bar').style.width = '0%';
+      document.getElementById('zip-progress-pct').textContent = '0%';
+      document.getElementById('zip-progress-status').textContent = 'Initiating download streams...';
+      document.getElementById('zip-progress-items').textContent = `Items: 0 / ${selectedIds.size}`;
+      document.getElementById('zip-progress-speed').textContent = 'Speed: 0 KB/s';
+    }
+
+    function closeZipModal() {
+      document.getElementById('zip-modal').classList.add('hidden');
+      if (batchPollTimer) {
+        clearInterval(batchPollTimer);
+        batchPollTimer = null;
+      }
+      activeBatchId = null;
+      updateDownloadButton();
+    }
+
+    function startBatchPolling() {
+      if (batchPollTimer) clearInterval(batchPollTimer);
+      batchPollTimer = setInterval(pollBatchStatus, 1200);
+    }
+
+    async function pollBatchStatus() {
+      if (!activeBatchId) return;
+
+      try {
+        const res = await fetch(`/api/batch-status/${activeBatchId}`);
+        if (!res.ok) throw new Error("Batch expired or not found");
+        const b = await res.json();
+
+        // Update progress bar
+        const pct = b.overall_percent || 0;
+        document.getElementById('zip-progress-bar').style.width = `${pct}%`;
+        document.getElementById('zip-progress-pct').textContent = `${pct}%`;
+        document.getElementById('zip-progress-status').textContent = b.current_title || 'Processing...';
+        document.getElementById('zip-progress-items').textContent = `Items: ${b.completed_items} / ${b.total_items}`;
+        document.getElementById('zip-progress-speed').textContent = `Speed: ${b.current_speed || '0 KB/s'}`;
+
+        if (b.status === 'completed') {
+          clearInterval(batchPollTimer);
+          batchPollTimer = null;
+          showZipSuccess(b);
+        } else if (b.status === 'error') {
+          clearInterval(batchPollTimer);
+          batchPollTimer = null;
+          showZipError(b.error || "Batch processing failed.");
+        }
+      } catch (e) {
+        console.error("Poll error:", e);
+      }
+    }
+
+    function showZipSuccess(batch) {
+      document.getElementById('zip-success-box').classList.remove('hidden');
+      document.getElementById('zip-file-details').textContent = `Archive Size: ${batch.zip_size_mb} MB (${batch.completed_items} files bundled)`;
+      
+      const downloadUrl = `/api/download-zip/${batch.batch_id}`;
+      const downloadLink = document.getElementById('zip-download-link');
+      downloadLink.href = downloadUrl;
+
+      // Auto-trigger browser download via invisible link without redirecting the page
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', batch.zip_filename || 'youtube_shorts.zip');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      lucide.createIcons();
+    }
+
+    function showZipError(msg) {
+      const errBox = document.getElementById('zip-error-box');
+      document.getElementById('zip-error-msg').textContent = msg;
+      errBox.classList.remove('hidden');
+    }
+
+    function showError(msg) {
+      const banner = document.getElementById('error-banner');
+      const errText = document.getElementById('error-message');
+      errText.textContent = msg;
+      banner.classList.remove('hidden');
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>
