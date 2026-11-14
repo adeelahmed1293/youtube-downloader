@@ -38,7 +38,7 @@ class BatchDownloadRequest(BaseModel):
     channel_name: Optional[str] = "YouTube_Shorts"
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def index():
     html_file = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(html_file):

@@ -13,7 +13,59 @@ from typing import Dict, List, Optional, Any, Callable
 from contextlib import suppress
 import yt_dlp
 
-HD_CLIENTS = ["default", "mweb"]
+HD_CLIENTS = ["ios", "android", "mweb", "default"]
+
+def get_cookiefile_path() -> Optional[str]:
+    """
+    Finds YouTube cookies from:
+    1. Render Secret Files mount path (/etc/secrets/cookies.txt)
+    2. Local cookies.txt in app folder
+    3. YOUTUBE_COOKIES environment variable (pasted directly in Render Environment tab)
+    """
+    # 1. Render Secret Files path
+    render_secret = "/etc/secrets/cookies.txt"
+    if os.path.exists(render_secret) and os.path.getsize(render_secret) > 0:
+        return render_secret
+
+    # 2. Local cookies.txt
+    local_cookie = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+    if os.path.exists(local_cookie) and os.path.getsize(local_cookie) > 0:
+        return local_cookie
+
+    # 3. YOUTUBE_COOKIES environment variable
+    env_cookies = os.environ.get("YOUTUBE_COOKIES")
+    if env_cookies and env_cookies.strip():
+        import base64
+        cookie_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "env_cookies.txt")
+        raw_val = env_cookies.strip()
+        try:
+            decoded = base64.b64decode(raw_val).decode('utf-8')
+            if "youtube" in decoded or "COOKIE" in decoded.upper() or "\t" in decoded:
+                with open(cookie_path, "w", encoding="utf-8") as f:
+                    f.write(decoded)
+                return cookie_path
+        except Exception:
+            pass
+
+        with open(cookie_path, "w", encoding="utf-8") as f:
+            f.write(raw_val)
+        return cookie_path
+
+    return None
+
+def get_extractor_args() -> Dict[str, Any]:
+    cookie_path = get_cookiefile_path()
+    if cookie_path:
+        return {
+            'youtube': {
+                'player_client': ['default', 'mweb']
+            }
+        }
+    return {
+        'youtube': {
+            'player_client': ['ios', 'android', 'mweb', 'default']
+        }
+    }
 
 def format_duration(seconds: Optional[int]) -> str:
     if not seconds:
@@ -87,13 +139,18 @@ def fetch_youtube_metadata(url: str, filter_type: str = "all", max_results: Opti
     is_single = is_single_video_url(url)
     target_url = normalize_channel_url(url, filter_type)
     
+    cookie_path = get_cookiefile_path()
+
     ydl_opts = {
         'extract_flat': 'in_playlist' if not is_single else False,
         'skip_download': True,
         'quiet': True,
         'no_warnings': True,
         'ignoreerrors': False,
+        'extractor_args': get_extractor_args()
     }
+    if cookie_path:
+        ydl_opts['cookiefile'] = cookie_path
 
     if max_results and max_results > 0 and not is_single:
         ydl_opts['playlistend'] = max_results
@@ -103,7 +160,7 @@ def fetch_youtube_metadata(url: str, filter_type: str = "all", max_results: Opti
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(target_url, download=False)
     except Exception:
-        # Fallback with ignoreerrors or minimal options
+        # Fallback with mobile clients and ignoreerrors
         try:
             fallback_opts = {
                 'extract_flat': True,
@@ -111,7 +168,14 @@ def fetch_youtube_metadata(url: str, filter_type: str = "all", max_results: Opti
                 'quiet': True,
                 'no_warnings': True,
                 'ignoreerrors': True,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['ios', 'android']
+                    }
+                }
             }
+            if cookie_path:
+                fallback_opts['cookiefile'] = cookie_path
             with yt_dlp.YoutubeDL(fallback_opts) as ydl:
                 info = ydl.extract_info(target_url, download=False)
         except Exception:
@@ -341,6 +405,7 @@ class ZipBatchManager:
                         overall = round(((idx + (pct / 100.0)) / total) * 90.0, 1)
                         batch["overall_percent"] = min(overall, 90.0)
 
+            cookie_path = get_cookiefile_path()
             ydl_opts = {
                 'format': format_str,
                 'outtmpl': outtmpl,
@@ -351,12 +416,10 @@ class ZipBatchManager:
                 'no_warnings': True,
                 'ignoreerrors': True,
                 'noprogress': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': HD_CLIENTS
-                    }
-                }
+                'extractor_args': get_extractor_args()
             }
+            if cookie_path:
+                ydl_opts['cookiefile'] = cookie_path
 
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
